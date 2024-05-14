@@ -3,6 +3,7 @@ import os
 import sys
 from PIL import Image
 import pandas as pd
+import time
 
 
 # Solve path problems
@@ -19,10 +20,11 @@ DATA_PATH = r"C:\Users\jmgarzonv\Desktop\EAFIT\Tesis\ground_truth\synthtabnet"
 GROUND_TRUTH_FILE = "test_synthetic_data.jsonl"
 RESULTS_PATH = r".\results"
 
+import logging
 
 def print_decoding_error(e):
-    print(f"Error decoding JSON from line: {e.doc[:50]}...")
-    print(f"Error message: {e}\n")
+    logging.error(f"Error decoding JSON from line: {e.doc[:50]}...")
+    logging.error(f"Error message: {e}\n")
 
     # How many characters to show before and after
     context_range = 50  # Adjust this value as needed
@@ -32,8 +34,8 @@ def print_decoding_error(e):
     end = min(len(e.doc), e.pos + context_range)
 
     # Print the substring around the position of interest
-    print(e.doc[start:end])
-    print(" " * (e.pos - start) + "^")
+    logging.error(e.doc[start:end])
+    logging.error(" " * (e.pos - start) + "^")
 
 
 def process_ground_truth_data(ground_truth_data):
@@ -85,6 +87,12 @@ class TestModel:
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[logging.FileHandler("execution.log", "w"), logging.StreamHandler()],
+    )
+    logging.info("Starting evaluation")
     evaluate_ground_truth()
 
 
@@ -96,7 +104,7 @@ def evaluate_ground_truth():
         ground_truth_file = os.path.join(DATA_PATH, directory, GROUND_TRUTH_FILE)
 
         if not os.path.exists(ground_truth_file):
-            print(f"File {ground_truth_file} does not exist")
+            logging.info(f"File {ground_truth_file} does not exist")
             continue
 
         with open(ground_truth_file, "r", encoding="utf-8") as file:
@@ -107,6 +115,7 @@ def evaluate_ground_truth():
                 if not line:
                     continue
                 try:
+                    start_time = time.time()  # Start timing the execution
                     ground_truth_data = json.loads(line)
                     image_path = os.path.join(
                         DATA_PATH,
@@ -118,6 +127,11 @@ def evaluate_ground_truth():
                     test = TestModel(image_path, ground_truth_data)
                     prediction = test.inference(model)
                     teds = test.compute_metric()
+
+                    # Compute the elapsed time
+                    end_time = time.time() 
+                    elapsed_time = end_time - start_time
+
                     results.append(
                         {
                             "directory": directory,
@@ -127,10 +141,10 @@ def evaluate_ground_truth():
                         }
                     )
                     # Execution report
-                    print(f"Processed: Directory: {directory}: {count}, TEDS: {teds}")
+                    logging.info(f"Processed: Directory: {directory}: {count}, TEDS: {teds:.2f}, Time: {elapsed_time} s.")
                 except json.JSONDecodeError as e:
                     print_decoding_error(e)
-            print(f"{count} files processed for '{directory}'")
+            logging.info(f"{count} files processed for '{directory}'")
             results_df = pd.DataFrame(results)
             results_df.to_csv(f"results_{directory}.csv", index=False)
 
