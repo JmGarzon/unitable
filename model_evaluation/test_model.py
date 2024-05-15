@@ -5,8 +5,13 @@ from PIL import Image
 import pandas as pd
 import time
 
+import psutil
+
 
 # Solve path problems
+os.chdir(
+    r"C:\Users\jmgarzonv\Desktop\EAFIT\Tesis\models_to_test\unitable\model_evaluation"
+)
 parent_dir = os.path.abspath(os.path.join(os.getcwd(), ".."))
 sys.path.append(parent_dir)
 
@@ -99,18 +104,24 @@ def main():
 def evaluate_ground_truth():
     directories = os.listdir(DATA_PATH)
     model = UniTable()
-    results = []
     for directory in directories:
+
+        results = []
         ground_truth_file = os.path.join(DATA_PATH, directory, GROUND_TRUTH_FILE)
 
         if not os.path.exists(ground_truth_file):
-            logging.info(f"File {ground_truth_file} does not exist")
+            logging.error(f"File {ground_truth_file} does not exist")
             continue
 
         with open(ground_truth_file, "r", encoding="utf-8") as file:
             count = 0
             for line in file:
                 count += 1
+
+                if count % 100 == 0:
+                    memory_info = psutil.virtual_memory()
+                    available_memory = memory_info.available
+                    logging.info(f"Available Memory: {available_memory / (1024 ** 3):.2f} GB")
                 line = line.strip()
                 if not line:
                     continue
@@ -135,7 +146,7 @@ def evaluate_ground_truth():
                     results.append(
                         {
                             "directory": directory,
-                            "image_path": image_path,
+                            "filename": ground_truth_data["filename"],
                             "prediction": prediction,
                             "teds": teds,
                         }
@@ -146,7 +157,7 @@ def evaluate_ground_truth():
                     print_decoding_error(e)
             logging.info(f"{count} files processed for '{directory}'")
             results_df = pd.DataFrame(results)
-            results_df.to_csv(f"results_{directory}.csv", index=False)
+            results_df.to_csv(f"results_{directory}.csv", index=False, sep=";", )
 
 
 if __name__ == "__main__":
